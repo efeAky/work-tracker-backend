@@ -1,45 +1,31 @@
-import { Schema, model, Document, Types } from "mongoose";
+import mongoose, { Schema, model, Document } from "mongoose";
 
-// Define roles for type safety
-export enum UserRole {
-  SUPERVISOR = "supervisor",
-  WORKER = "worker",
-}
-
-interface IUser extends Document {
+export interface IUser extends Document {
+  userId: number;
   email: string;
-  fullName: string;
-  password?: string; // Optional because of OAuth
-  role: UserRole;
-  provider: "local" | "google" | "github";
-  externalId?: string; // To store Google/GitHub unique ID
-  avatarUrl?: string;
-  // For Workers: links to their specific tasks and time logs
-  tasks?: Types.ObjectId[];
-  // For Supervisors: links to the workers they manage
-  managedWorkers?: Types.ObjectId[];
+  fullname: string;
+  hashedPassword: string;
+  userRole: "admin" | "supervisor" | "worker";
+  companyId: number;
 }
 
 const UserSchema = new Schema<IUser>(
   {
+    userId: { type: Number, required: true, unique: true },
     email: { type: String, required: true, unique: true },
-    fullName: { type: String, required: true },
-    password: { type: String },
-    role: {
-      type: String,
-      enum: Object.values(UserRole),
-      default: UserRole.WORKER,
+    fullname: { type: String, required: true },
+    hashedPassword: { type: String, required: true },
+    userRole: { 
+      type: String, 
+      enum: ["admin", "supervisor", "worker"], 
+      required: true 
     },
-    provider: {
-      type: String,
-      enum: ["local", "google", "github"],
-      default: "local",
-    },
-    externalId: { type: String },
-    avatarUrl: { type: String },
-    managedWorkers: [{ type: Schema.Types.ObjectId, ref: "User" }], // Used if Supervisor
+    companyId: { type: Number, required: true },
   },
-  { timestamps: true },
+  { 
+    timestamps: true,
+    collection: "User"  // ← Force collection name to be "User"
+  }
 );
 
 export const User = model<IUser>("User", UserSchema);
