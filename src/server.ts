@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
-import usersRoutes from "./routes/userRoutes"; // ✅ added
+import userRoutes from "./routes/userRoutes";
 
 dotenv.config();
 
@@ -18,8 +18,8 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // ✅ added
-    allowedHeaders: ["Content-Type", "Authorization"],    // ✅ added
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
@@ -30,7 +30,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/users", usersRoutes); // ✅ added
+app.use("/api/users", userRoutes);
 
 const PORT = process.env.PORT || 5000;
 
