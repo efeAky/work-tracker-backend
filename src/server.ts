@@ -4,34 +4,33 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
+import usersRoutes from "./routes/userRoutes"; // ✅ added
 
-// Load env vars FIRST
 dotenv.config();
 
 const app: Application = express();
 
-// 1. Connect to Database
 connectDB();
 
-// 2. Middleware
 app.use(express.json());
 
-// CORS configuration - allow credentials and specify origin
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // ✅ added
+    allowedHeaders: ["Content-Type", "Authorization"],    // ✅ added
   }),
 );
 
 app.use(cookieParser());
 
-// 3. Routes
 app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", usersRoutes); // ✅ added
 
 const PORT = process.env.PORT || 5000;
 
