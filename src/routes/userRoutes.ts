@@ -9,7 +9,7 @@ const toInt = (val: string | string[]): number =>
   parseInt(Array.isArray(val) ? val[0] : val);
 
 router.use(authenticateToken as any);
-
+// TEST
 // ----------------------
 // POST /api/users/register
 // ACCESS: Admin only
