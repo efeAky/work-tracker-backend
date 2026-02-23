@@ -6,28 +6,25 @@ import connectDB from "./config/db";
 import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
 
-// Load env vars FIRST
 dotenv.config();
 
 const app: Application = express();
 
-// 1. Connect to Database
 connectDB();
 
-// 2. Middleware
 app.use(express.json());
 
-// CORS configuration - allow credentials and specify origin
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
 app.use(cookieParser());
 
-// 3. Routes
 app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");
 });
