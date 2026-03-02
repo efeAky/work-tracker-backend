@@ -19,9 +19,9 @@ const seedAdmin = async () => {
 
     // Create company first
     const company = await Company.create({
-      companyId: 1,  // ← First company, ID = 1
+      companyId: 1, // ← First company, ID = 1
       name: "Main Company",
-      registrationNumber: "REG-00001"
+      registrationNumber: "REG-00001",
     });
     console.log("✅ Company created");
 
@@ -35,14 +35,14 @@ const seedAdmin = async () => {
       fullname: "System Admin",
       hashedPassword: hashedPassword,
       userRole: "admin",
-      companyId: 1  // ← References the company we just created
+      companyId: 1, // ← References the company we just created
     });
 
     console.log("✅ Admin created!");
     console.log("Email:", admin.email);
     console.log("Password: admin123");
     console.log("Company ID:", admin.companyId);
-    
+
     process.exit(0);
   } catch (error) {
     console.error("❌ Error:", error);
