@@ -27,7 +27,7 @@ const UserSchema = new Schema<IUser>(
   {
     timestamps: true,
     collection: "User",
-  }
+  },
 );
 
 export const User = model<IUser>("User", UserSchema);

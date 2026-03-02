@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 
 export interface AuthRequest extends Request {
   user?: {
-    userId: number;
+    userId: number; // Allow both
     email: string;
     userRole: string;
     companyId: number;
@@ -16,27 +16,36 @@ export const authenticateToken = (
   res: Response,
   next: NextFunction,
 ): void => {
-  // ✅ check both cookie and Authorization header
-  const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+  const fromCookie = req.cookies?.token;
+  const fromHeader = req.headers.authorization;
+
+  console.log("Cookie Token:", fromCookie ? "Found" : "Missing");
+  console.log("Header Auth:", fromHeader);
+
+  const token = fromCookie || fromHeader?.split(" ")[1];
 
   if (!token) {
-    res.status(401).json({ message: "Authentication required" });
+    console.error("No token extracted!");
     return;
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      userId: number;
-      email: string;
-      userRole: string;
-      companyId: number;
-      fullname: string;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+
+    // Force the userId to be a number here just in case the token has a string
+    (req as AuthRequest).user = {
+      ...decoded,
+      userId: Number(decoded.userId),
+      companyId: Number(decoded.companyId),
     };
 
-    (req as AuthRequest).user = decoded;
     next();
-  } catch (err) {
-    res.status(403).json({ message: "Invalid or expired token" });
+  } catch (err: any) {
+    // LOG THE ERROR so you can see it in your terminal
+    console.error("JWT Error:", err.message);
+    res
+      .status(403)
+      .json({ message: "Invalid or expired token", detail: err.message });
     return;
   }
 };

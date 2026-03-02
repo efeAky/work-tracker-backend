@@ -13,53 +13,70 @@ router.use(authenticateToken as any);
 // ----------------------
 // POST /api/users/register
 // ACCESS: Admin only
-router.post("/register", isAdmin as any, async (req: Request, res: Response) => {
-  try {
-    const { userId, email, fullname, password, userRole, companyId } = req.body;
+router.post(
+  "/register",
+  isAdmin as any,
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, email, fullname, password, userRole } = req.body;
 
-    if (!userId || !email || !fullname || !password || !userRole || !companyId) {
-      return res.status(400).json({ message: "All fields are required" });
+      if (!userId || !email || !fullname || !password || !userRole) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      const existingUser = await User.findOne({
+        $or: [{ email }, { userId: userId }],
+      });
+
+      if (existingUser) {
+        return res
+          .status(400)
+          .json({ message: "User with this email or userId already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const newUser = await User.create({
+        userId,
+        email,
+        fullname,
+        hashedPassword,
+        userRole,
+        companyId: req.body.companyId || 1, // Ensuring companyId is present
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "User created successfully",
+        user: {
+          userId: newUser.userId,
+          email: newUser.email,
+          fullname: newUser.fullname,
+          userRole: newUser.userRole,
+        },
+      });
+    } catch (error: any) {
+      // THE KEY CHANGE: Log the full error to your terminal
+      console.error("DEBUG - Error creating user:", error);
+
+      // Return the real error message to the frontend
+      res.status(500).json({
+        message: "Error creating user",
+        detail: error.message, // This will tell you IF it's a DB error
+        code: error.code, // Useful for MongoDB duplicate key errors (11000)
+      });
     }
-
-    const existingUser = await User.findOne({ $or: [{ email }, { userId }] });
-    if (existingUser) {
-      return res.status(400).json({ message: "User with this email or userId already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = await User.create({
-      userId,
-      email,
-      fullname,
-      hashedPassword,
-      userRole,
-      companyId,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      user: {
-        userId: newUser.userId,
-        email: newUser.email,
-        fullname: newUser.fullname,
-        userRole: newUser.userRole,
-        companyId: newUser.companyId,
-      },
-    });
-  } catch (error) {
-    console.error("Error creating user:", error);
-    res.status(500).json({ message: "Error creating user" });
-  }
-});
+  },
+);
 
 // ----------------------
 // GET /api/users
 // ACCESS: Admin only
 router.get("/", isAdmin as any, async (req: Request, res: Response) => {
   try {
-    const users = await User.find({}, { hashedPassword: 0 }).sort({ createdAt: -1 });
+    const users = await User.find({}, { hashedPassword: 0 }).sort({
+      createdAt: -1,
+    });
     res.json(users);
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -70,18 +87,22 @@ router.get("/", isAdmin as any, async (req: Request, res: Response) => {
 // ----------------------
 // GET /api/users/last/:limit
 // ACCESS: Admin only
-router.get("/last/:limit", isAdmin as any, async (req: Request, res: Response) => {
-  try {
-    const limit = toInt(req.params.limit) || 10;
-    const users = await User.find({}, { hashedPassword: 0 })
-      .sort({ createdAt: -1 })
-      .limit(limit);
-    res.json(users);
-  } catch (error) {
-    console.error("Error fetching last users:", error);
-    res.status(500).json({ message: "Error fetching last users" });
-  }
-});
+router.get(
+  "/last/:limit",
+  isAdmin as any,
+  async (req: Request, res: Response) => {
+    try {
+      const limit = toInt(req.params.limit) || 10;
+      const users = await User.find({}, { hashedPassword: 0 })
+        .sort({ createdAt: -1 })
+        .limit(limit);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching last users:", error);
+      res.status(500).json({ message: "Error fetching last users" });
+    }
+  },
+);
 
 // ----------------------
 // GET /api/users/:userId
@@ -89,7 +110,7 @@ router.get("/last/:limit", isAdmin as any, async (req: Request, res: Response) =
 router.get("/:userId", isAdmin as any, async (req: Request, res: Response) => {
   try {
     const userId = toInt(req.params.userId);
-    const user = await User.findOne({ userId }, { hashedPassword: 0 });
+    const user = await User.findOne({ userId: userId }, { hashedPassword: 0 });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -111,12 +132,16 @@ router.put("/:userId", isAdmin as any, async (req: Request, res: Response) => {
 
     if (!authReq.user) return res.status(401).json({ message: "Unauthorized" });
 
-    const user = await User.findOne({ userId });
+    const user = await User.findOne({ userId: userId });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (email) {
-      const existingUser = await User.findOne({ email, userId: { $ne: userId } });
-      if (existingUser) return res.status(400).json({ message: "Email already in use" });
+      const existingUser = await User.findOne({
+        email,
+        userId: userId,
+      });
+      if (existingUser)
+        return res.status(400).json({ message: "Email already in use" });
       user.email = email;
     }
     if (fullname) user.fullname = fullname;
@@ -124,7 +149,9 @@ router.put("/:userId", isAdmin as any, async (req: Request, res: Response) => {
     if (companyId) user.companyId = companyId;
     if (password) {
       if (password.length < 8)
-        return res.status(400).json({ message: "Password must be at least 8 characters long" });
+        return res
+          .status(400)
+          .json({ message: "Password must be at least 8 characters long" });
       user.hashedPassword = await bcrypt.hash(password, 10);
     }
 
@@ -150,25 +177,32 @@ router.put("/:userId", isAdmin as any, async (req: Request, res: Response) => {
 // ----------------------
 // DELETE /api/users/:userId
 // ACCESS: Admin only
-router.delete("/:userId", isAdmin as any, async (req: Request, res: Response) => {
-  const authReq = req as AuthRequest;
-  try {
-    const userId = toInt(req.params.userId);
+router.delete(
+  "/:userId",
+  isAdmin as any,
+  async (req: Request, res: Response) => {
+    const authReq = req as AuthRequest;
+    try {
+      const userId = toInt(req.params.userId);
 
-    if (!authReq.user) return res.status(401).json({ message: "Unauthorized" });
+      if (!authReq.user)
+        return res.status(401).json({ message: "Unauthorized" });
 
-    if (userId === authReq.user.userId) {
-      return res.status(400).json({ message: "You cannot delete your own account" });
+      if (userId === authReq.user.userId) {
+        return res
+          .status(400)
+          .json({ message: "You cannot delete your own account" });
+      }
+
+      const user = await User.findOneAndDelete({ userId: userId });
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      res.json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Error deleting user" });
     }
-
-    const user = await User.findOneAndDelete({ userId });
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.json({ success: true, message: "User deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).json({ message: "Error deleting user" });
-  }
-});
+  },
+);
 
 export default router;

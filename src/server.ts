@@ -13,7 +13,7 @@ const app: Application = express();
 connectDB();
 
 app.use(express.json());
-
+app.use(cookieParser());
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -22,8 +22,6 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
-
-app.use(cookieParser());
 
 app.get("/", (req: Request, res: Response) => {
   res.send("API is running...");
