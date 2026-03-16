@@ -42,7 +42,7 @@ router.post(
         fullname,
         hashedPassword,
         userRole,
-        companyId: req.body.companyId || 1, // Ensuring companyId is present
+        companyId: req.body.companyId || 1,
       });
 
       res.status(201).json({
@@ -56,14 +56,11 @@ router.post(
         },
       });
     } catch (error: any) {
-      // THE KEY CHANGE: Log the full error to your terminal
       console.error("DEBUG - Error creating user:", error);
-
-      // Return the real error message to the frontend
       res.status(500).json({
         message: "Error creating user",
-        detail: error.message, // This will tell you IF it's a DB error
-        code: error.code, // Useful for MongoDB duplicate key errors (11000)
+        detail: error.message,
+        code: error.code,
       });
     }
   },
@@ -136,9 +133,10 @@ router.put("/:userId", isAdmin as any, async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (email) {
+      // Check if another user (not this one) already has this email
       const existingUser = await User.findOne({
         email,
-        userId: userId,
+        userId: { $ne: userId },
       });
       if (existingUser)
         return res.status(400).json({ message: "Email already in use" });
