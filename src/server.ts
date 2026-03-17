@@ -11,7 +11,11 @@ dotenv.config();
 
 const app: Application = express();
 
-connectDB();
+connectDB().then(async () => {
+  const mongoose = require('mongoose');
+  const collections = await mongoose.connection.db.listCollections().toArray();
+  console.log('Available collections:', collections.map((c: any) => c.name));
+});
 
 app.use(express.json());
 app.use(cookieParser());
@@ -19,7 +23,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );

@@ -19,13 +19,10 @@ export const authenticateToken = (
   const fromCookie = req.cookies?.token;
   const fromHeader = req.headers.authorization;
 
-  console.log("Cookie Token:", fromCookie ? "Found" : "Missing");
-  console.log("Header Auth:", fromHeader);
 
   const token = fromCookie || fromHeader?.split(" ")[1];
 
   if (!token) {
-    console.error("No token extracted!");
     return;
   }
 
@@ -42,7 +39,6 @@ export const authenticateToken = (
     next();
   } catch (err: any) {
     // LOG THE ERROR so you can see it in your terminal
-    console.error("JWT Error:", err.message);
     res
       .status(403)
       .json({ message: "Invalid or expired token", detail: err.message });
