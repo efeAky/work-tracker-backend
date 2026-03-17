@@ -57,11 +57,88 @@ router.get(
   isAdminOrSupervisor as any,
   async (req: Request, res: Response) => {
     try {
-      const tasks = await Task.find().sort({ dueDate: -1 });
+      const tasks = await Task.aggregate([
+        {
+          $lookup: {
+            from: "User",
+            localField: "assigneeId",
+            foreignField: "userId",
+            as: "assigneeInfo",
+          },
+        },
+        {
+          $unwind: {
+            path: "$assigneeInfo",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            taskId: 1,
+            title: 1,
+            description: 1,
+            dueDate: 1,
+            status: 1,
+            assigneeId: 1,
+            assignorId: 1,
+            assigneeName: { $ifNull: ["$assigneeInfo.fullname", "Unknown Worker"] },
+          },
+        },
+        { $sort: { dueDate: -1 } },
+      ]);
       res.json(tasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       res.status(500).json({ message: "Error fetching tasks" });
+    }
+  }
+);
+
+// ----------------------
+// GET /api/tasks/my-tasks
+// ACCESS: Everyone (Filtered by User ID)
+router.get(
+  "/my-tasks",
+  async (req: Request, res: Response) => {
+    const authReq = req as AuthRequest;
+    try {
+      const tasks = await Task.aggregate([
+        {
+          $match: { assigneeId: authReq.user!.userId }
+        },
+        {
+          $lookup: {
+            from: "User",
+            localField: "assignorId",
+            foreignField: "userId",
+            as: "assignorInfo",
+          },
+        },
+        {
+          $unwind: {
+            path: "$assignorInfo",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            taskId: 1,
+            title: 1,
+            description: 1,
+            dueDate: 1,
+            status: 1,
+            assigneeId: 1,
+            assignorId: 1,
+            assignorName: { $ifNull: ["$assignorInfo.fullname", "System"] },
+          },
+        },
+        { $sort: { dueDate: 1 } },
+      ]);
+
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching my tasks:", error);
+      res.status(500).json({ message: "Error fetching my tasks" });
     }
   }
 );
@@ -144,6 +221,54 @@ router.delete(
     } catch (error) {
       console.error("Error deleting task:", error);
       res.status(500).json({ message: "Error deleting task" });
+    }
+  }
+);
+
+// ----------------------
+// PATCH /api/tasks/:taskId/status
+// ACCESS: Everyone (must be assigned to the user)
+router.patch(
+  "/:taskId/status",
+  async (req: Request, res: Response) => {
+    const authReq = req as AuthRequest;
+    try {
+      const taskId = toInt(req.params.taskId);
+      const { status } = req.body;
+      const currentUserId = authReq.user!.userId;
+
+      console.log(`DEBUG: PATCH STATUS - Task ${taskId}, New Status ${status}, User ID ${currentUserId}`);
+
+      const validStatuses = ["toDo", "inProgress", "done", "failed"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+
+      // Exact match check
+      const task = await Task.findOne({ taskId, assigneeId: currentUserId });
+      
+      if (!task) {
+        console.log(`DEBUG: Task ${taskId} NOT FOUND for User ${currentUserId}`);
+        return res.status(404).json({ message: "Task not found or not assigned to you" });
+      }
+
+      console.log(`DEBUG: Found task ${task.title}. Old status: ${task.status}. Updating to: ${status}`);
+
+      task.status = status as any;
+      if (status === "done") {
+        task.completedAt = new Date();
+      }
+
+      await task.save();
+
+      res.json({
+        success: true,
+        message: "Status updated successfully",
+        task,
+      });
+    } catch (error: any) {
+      console.error("Error updating task status:", error);
+      res.status(500).json({ message: "Error updating task status", error: error.message });
     }
   }
 );

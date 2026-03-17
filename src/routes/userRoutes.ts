@@ -222,10 +222,6 @@ router.put("/:userId", isAdmin as any, async (req: Request, res: Response) => {
     if (userRole) user.userRole = userRole;
     if (companyId) user.companyId = companyId;
     if (password) {
-      if (password.length < 8)
-        return res
-          .status(400)
-          .json({ message: "Password must be at least 8 characters long" });
       user.hashedPassword = await bcrypt.hash(password, 10);
     }
 
