@@ -1,7 +1,8 @@
 import express, { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import { User } from "../models/User";
-import { authenticateToken, isAdmin, AuthRequest } from "../middleware/auth";
+import { Task } from "../models/Task";
+import { authenticateToken, isAdmin, isAdminOrSupervisor, AuthRequest } from "../middleware/auth";
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const toInt = (val: string | string[]): number =>
   parseInt(Array.isArray(val) ? val[0] : val);
 
 router.use(authenticateToken as any);
-//
+
 // ----------------------
 // POST /api/users/register
 // ACCESS: Admin only
@@ -102,6 +103,82 @@ router.get(
 );
 
 // ----------------------
+// GET /api/users/search
+// ACCESS: Admin + Supervisor
+router.get("/search", isAdminOrSupervisor as any, async (req: Request, res: Response) => {
+  try {
+    const { q, role } = req.query;
+
+    const filter: Record<string, any> = {};
+
+    if (q) {
+      filter.fullname = { $regex: q as string, $options: "i" };
+    }
+
+    if (role) {
+      filter.userRole = role as string;
+    }
+
+    const users = await User.find(filter, { hashedPassword: 0 }).limit(10);
+    res.json(users);
+  } catch (error) {
+    console.error("Error searching users:", error);
+    res.status(500).json({ message: "Error searching users" });
+  }
+});
+
+// ----------------------
+// GET /api/users/employees/stats
+// ACCESS: Admin + Supervisor
+router.get(
+  "/employees/stats",
+  isAdminOrSupervisor as any,
+  async (req: Request, res: Response) => {
+    try {
+      const workers = await User.find(
+        { userRole: "worker" },
+        { hashedPassword: 0 }
+      );
+
+      const employeeStats = await Promise.all(
+        workers.map(async (worker) => {
+          const [total, completed, pending, failed, lastTask] =
+            await Promise.all([
+              Task.countDocuments({ assigneeId: worker.userId }),
+              Task.countDocuments({ assigneeId: worker.userId, status: "done" }),
+              Task.countDocuments({
+                assigneeId: worker.userId,
+                status: { $in: ["toDo", "inProgress"] },
+              }),
+              Task.countDocuments({ assigneeId: worker.userId, status: "failed" }),
+              Task.findOne({ assigneeId: worker.userId }).sort({ dueDate: -1 }),
+            ]);
+
+          return {
+            userId: worker.userId,
+            fullname: worker.fullname,
+            email: worker.email,
+            userRole: worker.userRole,
+            stats: {
+              total,
+              completed,
+              pending,
+              failed,
+              lastTaskDate: lastTask?.dueDate || null,
+            },
+          };
+        })
+      );
+
+      res.json(employeeStats);
+    } catch (error) {
+      console.error("Error fetching employee stats:", error);
+      res.status(500).json({ message: "Error fetching employee stats" });
+    }
+  }
+);
+
+// ----------------------
 // GET /api/users/:userId
 // ACCESS: Admin only
 router.get("/:userId", isAdmin as any, async (req: Request, res: Response) => {
@@ -133,7 +210,6 @@ router.put("/:userId", isAdmin as any, async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (email) {
-      // Check if another user (not this one) already has this email
       const existingUser = await User.findOne({
         email,
         userId: { $ne: userId },
