@@ -9,7 +9,7 @@ const toInt = (val: string | string[]): number =>
 
 router.use(authenticateToken as any);
 
-// ----------------------
+// ---------------------
 // POST /api/tasks/create
 // ACCESS: Supervisor + Admin
 router.post(
